@@ -1,0 +1,35 @@
+{
+  "name": "pi-perchai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal native Perch AI provider for Pi",
+  "keywords": ["pi-package", "pi-extension", "perchai"],
+  "repository": { "type": "git", "url": "git+https://github.com/YoungJurry/pi-perchai.git" },
+  "homepage": "https://github.com/YoungJurry/pi-perchai#readme",
+  "bugs": { "url": "https://github.com/YoungJurry/pi-perchai/issues" },
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "files": [
+    "index.js",
+    "src",
+    "README.md",
+    "docs/protocol.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.js"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "scripts": {
+    "test": "node --import ./scripts/offline.js --test test/*.test.js",
+    "check": "node scripts/check.js"
+  }
+}
