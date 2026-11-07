@@ -51,8 +51,8 @@ export function createPerchProvider({ api, origin = ORIGIN, fetch: fetchImpl, no
           ? options.sessionId + ":" + createHash("sha256").update(JSON.stringify([users.length, users.at(-1)?.content])).digest("hex")
           : randomUUID(); // Stateless SDK calls are separate turns.
         const turn = await tickets(token, scope, signal, wire);
-        secrets.push(turn.token);
-        const payload = { request, runId: turn.runId, lane: "chat", strictManual: false,
+        if (turn) secrets.push(turn.token);
+        const payload = { request, runId: turn?.runId ?? randomUUID(), lane: "chat", strictManual: false,
           clientSurface: "cli", manualModelOptionId: model.id,
           roostReasoning: level !== "off", effort: { level, orchestration: false } };
         const replacement = await onPayload?.(payload, model);
@@ -65,7 +65,7 @@ export function createPerchProvider({ api, origin = ORIGIN, fetch: fetchImpl, no
         signal.throwIfAborted();
         const response = await wire.request("/api/perch-terminal/model-call", {
           token, signal, body: outgoing,
-          headers: { Accept: "text/event-stream", ...options.headers, "x-perch-turn-ticket": turn.token },
+          headers: { Accept: "text/event-stream", ...options.headers, ...(turn ? { "x-perch-turn-ticket": turn.token } : {}) },
         });
         try {
           await onResponse?.({ status: response.status, headers: Object.fromEntries(response.headers) }, model);

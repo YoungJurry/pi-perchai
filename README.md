@@ -4,7 +4,7 @@ Perch AI 的实验性 Pi 原生 Provider。**不启动 Perch CLI、不跑本地�
 
 > Perch CLI **不是开源软件**。本扩展是独立的互操作实现，不捆绑官方 CLI。
 > 官方将这些接口定义为内部端点，第三方直接调用可能被限制或导致账号停用。正确的 User-Agent/请求字段不等于获得了公开 API 权限，更不能证明绕过成功。
-> 当前验证：Pi 1.5.0 的离线模拟与真实宿主加载器测试，以及匿名 OAuth 授权入口返回 302。**尚未用真实 Starter 账号完成登录／推理验证**，不要把离线通过当作服务端放行。
+> **当前实测状态（2026-11-07 UTC）：OAuth 登录、token 刷新、Starter 账户状态和 ticket 通路已验证；真正的 Starter `model-call` 返回 `403 perch_surface_required`。这个项目目前不能称作已可用的 Starter 免费 Provider。** 服务端明确提示直接 API 访问不包含在套餐中；请勿反复尝试或把离线通过当作远端放行。
 
 ## 使用
 
@@ -48,6 +48,7 @@ pi -e /tmp/pi-perchai
 - 只有选中 Perch 发请求时才创建请求专用 fetch 转换器。消息／工具历史转换、Pi 事件、取消和费用计算复用 Pi 自带 OpenAI adapter，不复制 SDK。
 - Perch 的 ticket 缓存只在内存中，最多 16 项，按 token 指纹、Pi session、当前用户回合与 transport 隔离；按需续签，不跨用户消息合并回合。同一标准回合最多 40 次模型调用，超出时提示发送新消息，不用换票重置预算。并发排队使用各自取消信号。
 - SDK 层不重复推理重试；Perch 自己的恢复事件继续观察，最终失败交给 Pi。403、429、client_update_required 等报告，不自动换账号、升档或接受收费溢出。
+- v0.1.1 仅在 ticket 的服务端 5xx 回应明确含 `enforced:false` 时，遵循官方 advisory ticket 分支继续；认证／套餐／限流错误与状态不明的超时不降级。控制接口超时改为 30 秒，错误包含具体请求路径。这只修正协议与诊断，不会解除 `perch_surface_required`。
 
 “不使用时无额外回调／后台任务”不代表零内存或绝对零加载成本。
 

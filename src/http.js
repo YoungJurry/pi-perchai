@@ -32,7 +32,10 @@ export function failure(body, status, secrets = []) {
   const text = typeof body === "string" ? body : JSON.stringify(body);
   const error = new Error("Perch" + (status ? " HTTP " + status : "") + ": " + redact(text, secrets));
   if (status) error.status = status;
-  if (body && typeof body === "object") error.code = body.errorCode ?? body.code;
+  if (body && typeof body === "object") {
+    error.code = body.errorCode ?? body.code;
+    if (Object.hasOwn(body, "enforced")) error.enforced = body.enforced;
+  }
   return error;
 }
 export async function bodyText(response, limit = 1024 * 1024) {
@@ -59,12 +62,25 @@ export function createClient({ origin = ORIGIN, fetch: fetchImpl, now = Date.now
       ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   }
   async function json(path, options = {}) {
-    const response = await request(path, { ...options, signal: deadline(options.signal) });
-    const text = await bodyText(response);
-    const secrets = [options.token, options.body?.auth_code, options.body?.code_verifier, options.body?.refresh_token];
-    let data; try { data = JSON.parse(text); } catch { throw failure(text, response.status, secrets); }
-    if (!response.ok || data?.ok === false) throw failure(data, response.status, secrets);
-    return data;
+    const timeout = options.timeoutMs ?? 30000;
+    const signal = deadline(options.signal, timeout);
+    try {
+      const response = await request(path, { ...options, signal });
+      const text = await bodyText(response);
+      const secrets = [options.token, options.body?.auth_code, options.body?.code_verifier, options.body?.refresh_token];
+      let data; try { data = JSON.parse(text); } catch { throw failure(text, response.status, secrets); }
+      if (!response.ok || data?.ok === false) throw failure(data, response.status, secrets);
+      return data;
+    } catch (cause) {
+      if (options.signal?.aborted) throw cause;
+      if (signal.aborted && signal.reason?.name === "TimeoutError") {
+        const error = new Error(`Perch ${path}: request timed out after ${timeout}ms`, { cause });
+        error.name = "TimeoutError";
+        error.code = "perch_request_timeout";
+        throw error;
+      }
+      throw cause;
+    }
   }
   return { origin, request, json, now, fetch: fetchImpl };
 }

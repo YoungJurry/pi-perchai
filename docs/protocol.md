@@ -15,7 +15,7 @@
 1. GET `/api/perch-terminal/cli-auth/config`：公开 Supabase 项目配置及提供的登录方式。
 2. Supabase PKCE 浏览器 OAuth → callback code → `/auth/v1/token?grant_type=pkce`，JSON 为 `auth_code` 和 `code_verifier`。
 3. refresh grant 由 Pi 原生凭据锁管理，不另设刷新定时器或登录态文件。
-4. POST `/api/perch-terminal/turn-ticket`，body `{surface:"cli",profile:"standard"}`。本扩展要求响应 `ticket`、`ticketId`、`runId`、`expiresAt` 完整，按需使用 `{renew:true,ticketId}`；续期保留当前回合调用计数，达到标准 profile 的 40 次预算后报错，不另铸 ticket 重置预算。用户回合从当前 transcript 的最近 user 消息／数量指纹推导，工具迭代复用 ticket，新 user 消息必须另开回合，无全局事件钩子。无 sessionId 的独立 SDK 请求各算一个回合。
+4. POST `/api/perch-terminal/turn-ticket`，body `{surface:"cli",profile:"standard"}`。成功 ticket 响应要求 `ticket`、`ticketId`、`runId`、`expiresAt` 完整，按需使用 `{renew:true,ticketId}`；服务端 5xx 若明确标 `enforced:false`，v0.1.1 允许 advisory 无票路径（对应官方 `Pno` 分支），不从超时、网络失败、401/403/429 或缺失字段推断可降级。两条路径都保留当前回合调用计数，达到标准 profile 的 40 次预算后报错，不另铸 ticket 重置预算。用户回合从当前 transcript 的最近 user 消息／数量指纹推导，工具迭代复用 ticket，新 user 消息必须另开回合，无全局事件钩子。无 sessionId 的独立 SDK 请求各算一个回合。
 5. POST `/api/perch-terminal/model-call`：Bearer、`x-perch-turn-ticket`、JSON、SSE Accept；UA 独立固定到所核对的官方 CLI 2.4.125。此 UA 是否必要或被校验仍未验证。
 
 ### Envelope 字段追踪
@@ -54,4 +54,7 @@ Starter DeepSeek、GLM Flash 和 Crouton 的 option ID 在客户端别名表中�
 - 无有效 token 时不同 UA 都是 401，不能推导登录后是否校验版本、surface 或 entitlement。
 - 匿名 body wrapper 能走到 401，而无 wrapper 得 400，不说明模型字段已被服务端验证。
 - 匿名 OAuth 入口 302、离线 mock 和真实 Pi loader 测试只证明所述层级的行为；**不证明额度、工具和推理的远端可用性**。
-- 首次短文本、一次工具调用以及长期 token 刷新仍待真实 Starter 账号验证。若网关返回 surface/client/version/plan 限制，本实现报告失败，不另试规避手段。
+- 实际 OAuth 登录、token 刷新、Starter 状态（`planRequired:false`）已验证。短文本 `maxTokens:64` 的真实 `model-call` 返回 `403 perch_surface_required`，usage 为 0；这是当前实现的明确失败，不应称为免费模型已可用。没有进行后续工具调用或重复试探。
+- 另观察到 ticket HTTP 500 `mint_failed` 且 `enforced:false`，v0.1.1 修正了过度要求 ticket 的分支及不带阶段信息的超时错误，但这些修正未解除服务端访问限制。
+- REA 6.8.0 已在临时目录做静态分析：完整 13.8 MB JS bundle 的默认 1 GiB worker 内存耗尽，报告为 partial，不能宣称完整逆向成功。对带原文件 SHA-256／字符范围证明的 ticket 与 model-call 小片段另行分析，得到局部语义关系；未包含的定义和服务端实现仍 unknown。所有 REA 材料留在本地临时目录，不捆绑进扩展。
+- 若网关返回 surface/client/version/plan 限制，本实现报告失败，不另试规避手段。
